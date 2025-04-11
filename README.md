@@ -1,68 +1,97 @@
-# Payload Blank Template
+# 🐛 Payload + TailwindCSS Init Failure Reproduction
 
-This template comes configured with the bare minimum to get started on anything you need.
+This repository reproduces a persistent issue encountered when attempting to install and initialize **TailwindCSS** in a fresh [Payload CMS](https://payloadcms.com/) app using either `npm` or `pnpm`.
 
-## Quick start
+---
 
-This template can be deployed directly from our Cloud hosting and it will setup MongoDB and cloud S3 object storage for media.
+## 📦 Tech Stack
 
-## Quick Start - local setup
+- Payload CMS (blank template)
+- Node.js `v20.11.1`
+- npm `v10.9.0`
+- macOS (Darwin 24.1.0)
 
-To spin up this template locally, follow these steps:
+---
 
-### Clone
+## ❗ The Problem
 
-After you click the `Deploy` button above, you'll want to have standalone copy of this repo on your machine. If you've already cloned this repo, skip to [Development](#development).
+Running `npx tailwindcss init -p` results in errors such as:
 
-### Development
+- `could not determine executable to run`
+- `Cannot read properties of null (reading 'matches')`
+- Tailwind binary (`node_modules/.bin/tailwindcss`) is **never created**
 
-1. First [clone the repo](#clone) if you have not done so already
-2. `cd my-project && cp .env.example .env` to copy the example environment variables. You'll need to add the `MONGODB_URI` from your Cloud project to your `.env` if you want to use S3 storage and the MongoDB database that was created for you.
+This happens regardless of whether Tailwind v4.1.3 or v3.3.5 is used.
 
-3. `pnpm install && pnpm dev` to install dependencies and start the dev server
-4. open `http://localhost:3000` to open the app in your browser
+---
 
-That's it! Changes made in `./src` will be reflected in your app. Follow the on-screen instructions to login and create your first admin user. Then check out [Production](#production) once you're ready to build and serve your app, and [Deployment](#deployment) when you're ready to go live.
+## 🧪 Steps to Reproduce
 
-#### Docker (Optional)
+```bash
+# 1. Create a fresh Payload app
+pnpx create-payload-app@latest -t blank tailwind-repro
+cd tailwind-repro
 
-If you prefer to use Docker for local development instead of a local MongoDB instance, the provided docker-compose.yml file can be used.
+# 2. Install TailwindCSS and its dependencies
+npm install -D tailwindcss postcss autoprefixer
 
-To do so, follow these steps:
+# 3. Attempt to initialize Tailwind
+npx tailwindcss init -p
+```
 
-- Modify the `MONGODB_URI` in your `.env` file to `mongodb://127.0.0.1/<dbname>`
-- Modify the `docker-compose.yml` file's `MONGODB_URI` to match the above `<dbname>`
-- Run `docker-compose up` to start the database, optionally pass `-d` to run in the background.
+> This command fails with:  
+> `npm ERR! could not determine executable to run`
 
-## How it works
+You may also see:
 
-The Payload config is tailored specifically to the needs of most websites. It is pre-configured in the following ways:
+```bash
+zsh: command not found: tailwindcss
+npm ERR! Cannot read properties of null (reading 'matches')
+```
 
-### Collections
+---
 
-See the [Collections](https://payloadcms.com/docs/configuration/collections) docs for details on how to extend this functionality.
+## 🔍 What We Tried
 
-- #### Users (Authentication)
+| Attempted Fix                                   | Outcome                                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `pnpm add -D tailwindcss`                       | Installed, but `tailwindcss` binary not found                                            |
+| `npx tailwindcss init -p`                       | Fails with `could not determine executable to run`                                       |
+| `pnpm exec tailwindcss init -p`                 | Fails: `Command "tailwindcss" not found`                                                 |
+| `./node_modules/.bin/tailwindcss init -p`       | File does not exist                                                                      |
+| Global install (`npm install -g tailwindcss`)   | CLI not found even after global install                                                  |
+| Downgraded Tailwind to `v3.3.5`                 | Still fails with a different error: `Cannot read properties of null (reading 'matches')` |
+| Deleted `node_modules` + lockfile + reinstalled | Did not help                                                                             |
+| Tried with both `npm` and `pnpm`                | Same issues across both                                                                  |
 
-  Users are auth-enabled collections that have access to the admin panel.
+---
 
-  For additional help, see the official [Auth Example](https://github.com/payloadcms/payload/tree/main/examples/auth) or the [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) docs.
+## 💡 Suspected Cause
 
-- #### Media
+- Incompatibility between `tailwindcss@4.x` and `npm@10+`
+- Payload's dependency structure might interfere with binary resolution
+- Possibly a `libnpmexec` bug in how binaries are linked
 
-  This is the uploads enabled collection. It features pre-configured sizes, focal point and manual resizing to help you manage your pictures.
+---
 
-### Docker
+## 📂 Logs
 
-Alternatively, you can use [Docker](https://www.docker.com) to spin up this template locally. To do so, follow these steps:
+All relevant debug logs are available and can be shared in an issue:
 
-1. Follow [steps 1 and 2 from above](#development), the docker-compose file will automatically use the `.env` file in your project root
-1. Next run `docker-compose up`
-1. Follow [steps 4 and 5 from above](#development) to login and create your first admin user
+- Install failures
+- Missing binary errors
+- `npm` stack traces
 
-That's it! The Docker instance will help you get up and running quickly while also standardizing the development environment across your teams.
+Let us know if you'd like them included.
 
-## Questions
+---
 
-If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).
-# tailwind-issue-payload
+## 🙏 What We're Hoping For
+
+We’d love help from the Payload CMS maintainers or community on:
+
+- Verifying this bug across different environments
+- Understanding if Payload is expected to support Tailwind out-of-the-box
+- Any workarounds or changes needed to enable Tailwind in Payload + Next.js projects
+
+Thanks for taking a look! 💙
